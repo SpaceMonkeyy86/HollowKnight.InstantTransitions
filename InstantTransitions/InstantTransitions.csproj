@@ -328,7 +328,6 @@
     
 
     <ItemGroup>
-        <None Include=".gitignore" />
         <None Include="LocalOverrides.targets" />
     </ItemGroup>
 </Project>

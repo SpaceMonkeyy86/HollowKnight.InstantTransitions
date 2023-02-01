@@ -1,5 +1,6 @@
 using Modding;
 using System;
+using System.Collections;
 
 namespace InstantTransitions;
 public class InstantTransitionsMod : Mod
@@ -29,8 +30,20 @@ public class InstantTransitionsMod : Mod
     {
         Log("Initializing");
 
-        // put additional initialization logic here
+        On.GameManager.BeginSceneTransitionRoutine += GameManager_BeginSceneTransitionRoutine;
 
         Log("Initialized");
+    }
+
+    private IEnumerator GameManager_BeginSceneTransitionRoutine(On.GameManager.orig_BeginSceneTransitionRoutine orig, GameManager self, GameManager.SceneLoadInfo info)
+    {
+        info.WaitForSceneTransitionCameraFade = false;
+        info.PreventCameraFadeOut = true;
+
+        IEnumerator original = orig(self, info);
+        while (original.MoveNext())
+        {
+            yield return original.Current;
+        }
     }
 }
