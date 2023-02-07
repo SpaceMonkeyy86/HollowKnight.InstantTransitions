@@ -28,7 +28,7 @@ public class TransitionStretch : MonoBehaviour
     public void Update()
     {
         Vector2 speed = HeroController.instance.current_velocity;
-        float expectedLoadTime = 1f;
+        float expectedLoadTime = LoadTimePredictions.Predict(tp!.targetScene);
 
         Vector3 offset;
         Vector2 size;

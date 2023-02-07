@@ -7,13 +7,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
 
 namespace InstantTransitions;
 public class InstantTransitionsMod : Mod
 {
     private static InstantTransitionsMod? _instance;
-
-    public bool LoadCooldown { get; set; }
 
     private List<ILHook>? ILHooks { get; set; }
 
@@ -58,9 +58,10 @@ public class InstantTransitionsMod : Mod
         On.GameManager.BeginSceneTransitionRoutine += GameManager_BeginSceneTransitionRoutine;
         On.TransitionPoint.Awake += TransitionPoint_Awake;
         On.HeroController.EnterScene += HeroController_EnterScene;
-        On.TransitionPoint.OnTriggerEnter2D += TransitionPoint_OnTriggerEnter2D;
 
         ModHooks.ApplicationQuitHook += ModHooks_ApplicationQuitHook;
+
+        UnitySceneManager.activeSceneChanged += UnitySceneManager_activeSceneChanged;
 
         Log("Initialized");
     }
@@ -94,7 +95,7 @@ public class InstantTransitionsMod : Mod
 
     private static void SceneLoad_BeginRoutine_StateMachineMoveNext_Injected(SceneLoad sceneLoad)
     {
-        LoadTimePredictions.LoadTimes[sceneLoad.TargetSceneName] = sceneLoad.GetDuration(SceneLoad.Phases.Fetch)!.Value;
+        LoadTimePredictions.Update(sceneLoad.TargetSceneName, sceneLoad.GetDuration(SceneLoad.Phases.Fetch)!.Value, LoadTimePredictions.Confidence.VeryConfident);
     }
 
     private IEnumerator GameManager_BeginSceneTransitionRoutine(On.GameManager.orig_BeginSceneTransitionRoutine orig, GameManager self, GameManager.SceneLoadInfo info)
@@ -112,7 +113,7 @@ public class InstantTransitionsMod : Mod
 
     private void TransitionPoint_Awake(On.TransitionPoint.orig_Awake orig, TransitionPoint self)
     {
-        if (self.targetScene != null && self.targetScene != "" && !self.isADoor)
+        if (self.targetScene != null && self.targetScene != string.Empty && !self.isADoor)
         {
             self.gameObject.AddComponent<TransitionStretch>();
         }
@@ -124,54 +125,58 @@ public class InstantTransitionsMod : Mod
     {
         Time.timeScale = 3;
 
-        LoadCooldown = true;
-        List<WaitForSeconds> wait = new();
-
-        IEnumerator enumerator = orig(self, enterGate, delayBeforeEnter);
-
-        while (enumerator.MoveNext())
+        IEnumerator original = orig(self, enterGate, delayBeforeEnter);
+        while (original.MoveNext())
         {
-            var item = enumerator.Current;
-            /*
-            if (item is WaitForSeconds w)
-            {
-                wait.Add(w);
-
-                yield return null;
-            }
-            else
-            {
-                yield return item;
-            }
-            */
-            yield return item;
+            yield return original.Current;
         }
 
         Time.timeScale = 1;
-        LoadCooldown = false;
-
-        // GameManager.instance.StartCoroutine(WaitCoroutine());
-
-        IEnumerator WaitCoroutine()
-        {
-            foreach (WaitForSeconds w in wait)
-            {
-                yield return w;
-            }
-
-            LoadCooldown = false;
-        }
-    }
-
-    private void TransitionPoint_OnTriggerEnter2D(On.TransitionPoint.orig_OnTriggerEnter2D orig, TransitionPoint self, Collider2D movingObj)
-    {
-        if (LoadCooldown) return;
-
-        orig(self, movingObj);
     }
 
     private void ModHooks_ApplicationQuitHook()
     {
         LoadTimePredictions.Save();
+    }
+
+    private void UnitySceneManager_activeSceneChanged(Scene arg0, Scene arg1)
+    {
+        GameManager.instance.StartCoroutine(GeneratePredictionsRoutine());
+
+        IEnumerator GeneratePredictionsRoutine()
+        {
+            foreach (GameObject go in arg1.GetRootGameObjects())
+            {
+                foreach (TransitionPoint gate in go.GetComponentsInChildren<TransitionPoint>())
+                {
+                    string target = gate.targetScene;
+
+                    if (target != null && target != string.Empty && LoadTimePredictions.GetConfidence(target) < LoadTimePredictions.Confidence.Confident && !UnitySceneManager.GetSceneByName(target).isLoaded)
+                    {
+                        float start = Time.realtimeSinceStartup;
+
+                        AsyncOperation operation = UnitySceneManager.LoadSceneAsync(target, LoadSceneMode.Additive);
+                        operation.allowSceneActivation = false;
+
+                        while (operation.progress < 0.9f)
+                        {
+                            yield return null;
+                        }
+
+                        float elapsed = Time.realtimeSinceStartup - start;
+
+                        LoadTimePredictions.Update(target, elapsed, LoadTimePredictions.Confidence.Confident);
+
+                        operation.allowSceneActivation = true;
+                        yield return operation;
+
+                        // Using the async version would cause the scene to appear on the screen for a single frame
+#pragma warning disable CS0618 // Type or member is obsolete
+                        UnitySceneManager.UnloadScene(target);
+#pragma warning restore CS0618 // Type or member is obsolete
+                    }
+                }
+            }
+        }
     }
 }
