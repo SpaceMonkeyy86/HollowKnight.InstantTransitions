@@ -1,3 +1,4 @@
+using Core.FsmUtil;
 using Modding;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -118,17 +119,23 @@ public class InstantTransitionsMod : Mod
             self.gameObject.AddComponent<TransitionStretch>();
         }
 
+        // Remove camera fadeout from door FSM
+        if (self.isADoor)
+        {
+            self.gameObject.LocateMyFSM("Door Control").GetState("Enter").RemoveAction(4);
+        }
+
         orig(self);
     }
 
     private IEnumerator HeroController_EnterScene(On.HeroController.orig_EnterScene orig, HeroController self, TransitionPoint enterGate, float delayBeforeEnter)
     {
-        Time.timeScale = 3;
+        Time.timeScale = 5;
 
-        IEnumerator original = orig(self, enterGate, delayBeforeEnter);
-        while (original.MoveNext())
+        IEnumerator enumerator = orig(self, enterGate, delayBeforeEnter);
+        while (enumerator.MoveNext())
         {
-            yield return original.Current;
+            yield return enumerator.Current;
         }
 
         Time.timeScale = 1;

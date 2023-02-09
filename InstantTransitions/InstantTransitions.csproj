@@ -52,6 +52,12 @@
       <None Remove="README.md" />
     </ItemGroup>
 
+	<ItemGroup>
+		<Reference Include="Core_FsmUtil">
+			<HintPath>$(HollowKnightRefs)/Mods/Core.FsmUtil/Core_FsmUtil.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
     <ItemGroup>
         <Reference Include="Assembly-CSharp">
             <HintPath>$(HollowKnightRefs)/Assembly-CSharp.dll</HintPath>
