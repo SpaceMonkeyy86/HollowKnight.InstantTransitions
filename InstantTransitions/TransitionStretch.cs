@@ -5,16 +5,13 @@ namespace InstantTransitions;
 // Stretches the collider for the gate a little into the room to start loading earlier
 public class TransitionStretch : MonoBehaviour
 {
-    // Velocity to add to real velocity to anticipate sudden acceleration such as Crystal Heart releasing
-    // And we can use one value for both axes because dot product :)
-    // private readonly Vector2 VELOCITY_ANTICIPATE = new(HeroController.instance.RUN_SPEED, HeroController.instance.JUMP_SPEED);
-    private readonly Vector2 VELOCITY_ANTICIPATE = Vector2.zero;
-
     private TransitionPoint? tp;
     private BoxCollider2D? bc;
 
     private Vector3 originalOffset;
     private Vector2 originalSize;
+
+    private Vector2 lastVelocity;
 
     public void Awake()
     {
@@ -25,67 +22,71 @@ public class TransitionStretch : MonoBehaviour
         originalSize = bc.size;
     }
 
-    public void Update()
+    public void FixedUpdate()
     {
-        Vector2 speed = HeroController.instance.current_velocity;
-        float expectedLoadTime = LoadTimePredictions.Predict(tp!.targetScene);
+        Vector2 velocity = HeroController.instance.current_velocity;
+        Vector2 acceleration = velocity - lastVelocity;
+        lastVelocity = velocity;
 
-        Vector3 offset;
-        Vector2 size;
+        float time = LoadTimePredictions.Predict(tp!.targetScene);
+
+        Vector3 offset = default;
+        Vector2 size = default;
 
         switch (tp!.GetGatePosition())
         {
             /*
              * For gates on the left, the left side of the gate should stay in the same spot,
-             * and we should add speed * expectedLoadTime to the width.
-             * (Although it should actually be subtraction because speed is negative)
+             * and we should add velocity * time to the width.
+             * (Remember velocity is negative for left and down transitions)
              * 
              * originalOffset - originalSize.x / 2 = offset - size.x / 2
-             * size.x = originalSize.x + speed.x * expectedLoadTime
+             * size.x = originalSize.x + velocity.x * time
              * 
              * offset = originalOffset + (size.x - originalSize.x) / 2
-             * = originalOffset + speed.x * expectedLoadTime / 2
              * 
-             * All other directions follow in a similar fashion.
+             * For vertical transitions, we also want to factor in the acceleration of the player:
+             * xf = x0 + v0t + 1/2*at^2
+             * size.y = originalSize.y + velocity.y * time + acceleration.y * time * time
              */
 
             case GlobalEnums.GatePosition.left:
-                speed += Vector2.left * VELOCITY_ANTICIPATE;
-
-                size = originalSize + Vector2.right * speed * expectedLoadTime;
-                offset = originalOffset + Vector3.left * speed.x * expectedLoadTime / 2;
-
+                if (velocity.x < 0)
+                {
+                    size = originalSize + Vector2.left * velocity.x * time;
+                    offset = originalOffset + Vector3.right * (size.x - originalSize.x) / 2;
+                }
                 break;
 
             case GlobalEnums.GatePosition.right:
-                speed += Vector2.right * VELOCITY_ANTICIPATE;
-
-                size = originalSize + Vector2.right * speed * expectedLoadTime;
-                offset = originalOffset + Vector3.left * speed.x * expectedLoadTime / 2;
-
+                if (velocity.x > 0)
+                {
+                    size = originalSize + Vector2.right * velocity.x * time;
+                    offset = originalOffset + Vector3.left * (size.x - originalSize.x) / 2;
+                }
                 break;
 
             case GlobalEnums.GatePosition.top:
-                speed += Vector2.up * VELOCITY_ANTICIPATE;
-
-                size = originalSize + Vector2.up * speed * expectedLoadTime;
-                offset = originalOffset + Vector3.down * speed.y * expectedLoadTime / 2;
-
+                if (velocity.y > 0)
+                {
+                    size = originalSize + Vector2.up * (velocity.y * time + acceleration.y * time * time / 2);
+                    offset = originalOffset + Vector3.down * (size.y - originalSize.y) / 2;
+                }
                 break;
 
             case GlobalEnums.GatePosition.bottom:
-                speed += Vector2.down * VELOCITY_ANTICIPATE;
-
-                size = originalSize + Vector2.up * speed * expectedLoadTime;
-                offset = originalOffset + Vector3.down * speed.y * expectedLoadTime / 2;
-
+                if (velocity.y < 0)
+                {
+                    size = originalSize + Vector2.down * (velocity.y * time + acceleration.y * time * time / 2);
+                    offset = originalOffset + Vector3.up * (size.y - originalSize.y) / 2;
+                }
                 break;
 
             default:
                 return;
         }
 
-        if (size.x < originalSize.x || size.y < originalSize.y)
+        if (size == default)
         {
             size = originalSize;
             offset = originalOffset;

@@ -51,7 +51,7 @@ public static class LoadTimePredictions
 
     public static float Predict(string scene) => LoadTimes[scene].time;
 
-    public static Confidence GetConfidence(string scene) => LoadTimes[scene].confidence;
+    public static Confidence GetConfidence(string scene) => LoadTimes.TryGetValue(scene, out Entry entry) ? entry.confidence : Confidence.NotConfident;
 
     public static void Update(string scene, float time, Confidence confidence)
     {

@@ -62,7 +62,7 @@ public class InstantTransitionsMod : Mod
 
         ModHooks.ApplicationQuitHook += ModHooks_ApplicationQuitHook;
 
-        UnitySceneManager.activeSceneChanged += UnitySceneManager_activeSceneChanged;
+        GameManager.instance.OnFinishedEnteringScene += GameManager_OnFinishedEnteringScene;
 
         Log("Initialized");
     }
@@ -122,7 +122,7 @@ public class InstantTransitionsMod : Mod
         // Remove camera fadeout from door FSM
         if (self.isADoor)
         {
-            self.gameObject.LocateMyFSM("Door Control").GetState("Enter").RemoveAction(4);
+            self.gameObject.LocateMyFSM("Door Control")?.GetState("Enter")?.RemoveAction(4);
         }
 
         orig(self);
@@ -146,13 +146,13 @@ public class InstantTransitionsMod : Mod
         LoadTimePredictions.Save();
     }
 
-    private void UnitySceneManager_activeSceneChanged(Scene arg0, Scene arg1)
+    private void GameManager_OnFinishedEnteringScene()
     {
         GameManager.instance.StartCoroutine(GeneratePredictionsRoutine());
 
         IEnumerator GeneratePredictionsRoutine()
         {
-            foreach (GameObject go in arg1.GetRootGameObjects())
+            foreach (GameObject go in UnitySceneManager.GetActiveScene().GetRootGameObjects())
             {
                 foreach (TransitionPoint gate in go.GetComponentsInChildren<TransitionPoint>())
                 {
@@ -163,6 +163,7 @@ public class InstantTransitionsMod : Mod
                         float start = Time.realtimeSinceStartup;
 
                         AsyncOperation operation = UnitySceneManager.LoadSceneAsync(target, LoadSceneMode.Additive);
+                        if (operation == null) continue;
                         operation.allowSceneActivation = false;
 
                         while (operation.progress < 0.9f)
