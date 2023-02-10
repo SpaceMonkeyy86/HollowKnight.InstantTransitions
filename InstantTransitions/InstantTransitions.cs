@@ -53,7 +53,12 @@ public class InstantTransitionsMod : Mod
             // MoveNext() for SceneLoad::BeginRoutine()
             new ILHook(typeof(SceneLoad).GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic)
                 .GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance),
-                SceneLoad_BeginRoutine_StateMachineMoveNext)
+                SceneLoad_BeginRoutine_StateMachineMoveNext),
+
+            // MoveNext() for GameManager::BeginSceneTransitionRoutine()
+            new ILHook(typeof(GameManager).GetNestedType("<BeginSceneTransitionRoutine>d__174", BindingFlags.NonPublic)
+                .GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance),
+                GameManager_BeginSceneTransitionRoutine_StateMachineMoveNext)
         };
 
         On.GameManager.BeginSceneTransitionRoutine += GameManager_BeginSceneTransitionRoutine;
@@ -97,6 +102,32 @@ public class InstantTransitionsMod : Mod
     private static void SceneLoad_BeginRoutine_StateMachineMoveNext_Injected(SceneLoad sceneLoad)
     {
         LoadTimePredictions.Update(sceneLoad.TargetSceneName, sceneLoad.GetDuration(SceneLoad.Phases.Fetch)!.Value, LoadTimePredictions.Confidence.VeryConfident);
+
+        // Some code from GameManager::BeginSceneTransitionRoutine() moved here
+        HeroController hc = HeroController.instance;
+        if (hc != null)
+        {
+            if (hc.cState.superDashing) hc.exitedSuperDashing = true;
+            if (hc.cState.spellQuake) hc.exitedQuake = true;
+            hc.proxyFSM.SendEvent("HeroCtrl-LeavingScene");
+            hc.SetHeroParent(null);
+
+            hc.LeaveScene();
+        }
+    }
+
+    private void GameManager_BeginSceneTransitionRoutine_StateMachineMoveNext(ILContext il)
+    {
+        ILCursor cursor = new ILCursor(il).Goto(0);
+        while (cursor.TryGotoNext(
+            i => i.MatchLdloc(1),
+            i => i.MatchCallvirt<GameManager>("get_hero_ctrl"),
+            i => i.MatchLdnull(),
+            i => i.MatchCall<UnityEngine.Object>("op_Inequality")))
+        {
+            cursor.RemoveRange(4);
+            cursor.Emit(OpCodes.Ldc_I4_0);
+        }
     }
 
     private IEnumerator GameManager_BeginSceneTransitionRoutine(On.GameManager.orig_BeginSceneTransitionRoutine orig, GameManager self, GameManager.SceneLoadInfo info)
