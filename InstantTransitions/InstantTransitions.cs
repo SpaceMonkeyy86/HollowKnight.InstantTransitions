@@ -1,7 +1,9 @@
 using Modding;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
@@ -38,6 +40,8 @@ public class InstantTransitionsMod : Mod
         
         On.GameManager.OnNextLevelReady += GameManagerOnOnNextLevelReady;
         On.HeroController.HeroJump += HeroControllerOnHeroJump;
+        
+        IL.GameManager.FindTransitionPoint += GameManagerOnFindTransitionPoint;
 
         Log("End Initialization");
     }
@@ -55,6 +59,22 @@ public class InstantTransitionsMod : Mod
         orig(self);
         
         // Preload("Crossroads_15");
+    }
+    
+    private void GameManagerOnFindTransitionPoint(ILContext il)
+    {
+        ILCursor cursor = new ILCursor(il).Goto(0);
+        
+        // Replace if (transitionPoint.name == entryPointName && ...) with
+        // if (transitionPoint.name == entryPointName && transitionPoint.isActiveAndEnabled && ...)
+        ILLabel? skipLabel = null;
+        cursor.GotoNext(MoveType.After, i => i.MatchBrfalse(out skipLabel));
+        cursor.Emit(OpCodes.Ldloc_2);
+        cursor.Emit(OpCodes.Call, typeof(TransitionPoint)
+            .GetProperty(nameof(TransitionPoint.isActiveAndEnabled),
+                BindingFlags.Public | BindingFlags.Instance)
+            !.GetGetMethod());
+        cursor.Emit(OpCodes.Brfalse_S, skipLabel);
     }
 
     private void Preload(string sceneName)
