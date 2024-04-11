@@ -3,12 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Mono.Cecil;
-using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using OpCodes = Mono.Cecil.Cil.OpCodes;
 using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
 
 namespace InstantTransitions;
@@ -16,11 +16,16 @@ public class InstantTransitionsMod : Mod
 {
     private static InstantTransitionsMod? _instance;
 
-    private static List<string> ILGetPreloadedScenes()
+    private static bool ILIsTargetPreloaded(string targetSceneName)
     {
-        return Instance.preloadedScenes;
+        return Instance.preloadedScenes.Contains(targetSceneName);
     }
 
+    private static void ILActivateByName(string targetSceneName)
+    {
+        Activate(UnitySceneManager.GetSceneByName(targetSceneName));
+    }
+    
     private List<ILHook> hooks = [];
 
     private List<string> preloadedScenes = [];
@@ -46,8 +51,6 @@ public class InstantTransitionsMod : Mod
 
     public override void Initialize()
     {
-        Log("Begin Initialization");
-        
         ModHooks.BeforeSceneLoadHook += BeforeSceneLoadHook;
         
         On.GameManager.OnNextLevelReady += GameManagerOnOnNextLevelReady;
@@ -60,7 +63,7 @@ public class InstantTransitionsMod : Mod
                     .GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance), 
             SceneLoadOnBeginRoutine));
 
-        Log("End Initialization");
+        Log("Initialized");
     }
 
     private string BeforeSceneLoadHook(string sceneName)
@@ -107,7 +110,7 @@ public class InstantTransitionsMod : Mod
             .GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic);
 
         // Insert before AsyncOperation loadOperation = UnitySceneManager.LoadSceneAsync(...)
-        // if (InstantTransitionsMod.ILGetPreloadedScenes().Contains(targetSceneName))
+        // if (InstantTransitionsMod.ILIsTargetPreloaded(targetSceneName))
         // {
         //     loadOperation = null;
         //     goto <RecordEndTime(SceneLoad.Phases.Fetch)>;
@@ -118,7 +121,7 @@ public class InstantTransitionsMod : Mod
         FieldReference loadOperationField = null!;
         cursor.GotoNext(MoveType.Before,
             i => i.MatchLdloc(1),
-            i => i.MatchLdcI4(1),
+            i => i.MatchLdcI4((int)SceneLoad.Phases.Fetch),
             i => i.MatchCallvirt<SceneLoad>("RecordEndTime"));
         skipFetchLabel = cursor.MarkLabel();
         cursor.Goto(0);
@@ -132,12 +135,10 @@ public class InstantTransitionsMod : Mod
             i => i.MatchStfld(stateMachineType, "<loadOperation>5__2")
                  && i.MatchStfld(out loadOperationField));
         loadNormallyLabel = cursor.MarkLabel();
-        cursor.Emit(OpCodes.Call, typeof(InstantTransitionsMod)
-            .GetMethod(nameof(ILGetPreloadedScenes), BindingFlags.NonPublic | BindingFlags.Static));
+        cursor.Goto(cursor.Index);
         cursor.Emit(OpCodes.Ldloc_1);
         cursor.Emit(OpCodes.Ldfld, targetSceneNameField);
-        cursor.Emit(OpCodes.Call, typeof(List<string>)
-            .GetMethod(nameof(List<string>.Contains), BindingFlags.Public | BindingFlags.Instance));
+        cursor.EmitDelegate(ILIsTargetPreloaded);
         cursor.Emit(OpCodes.Brfalse_S, loadNormallyLabel);
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.Emit(OpCodes.Ldnull);
@@ -147,7 +148,7 @@ public class InstantTransitionsMod : Mod
         // Replace loadOperation.allowSceneActivation = true with
         // if (loadOperation == null)
         // {
-        //     InstantTransitionsMod.Activate(targetSceneName);
+        //     InstantTransitionsMod.ILActivateByName(targetSceneName);
         // }
         // else
         // {
@@ -155,6 +156,7 @@ public class InstantTransitionsMod : Mod
         // }
         ILLabel allowActivationLabel;
         ILLabel yieldReturnLabel;
+        ILLabel nullCheckLabel;
         cursor.GotoNext(MoveType.After, 
             i => i.MatchLdarg(0),
             i => i.MatchLdfld(loadOperationField),
@@ -166,14 +168,21 @@ public class InstantTransitionsMod : Mod
         yieldReturnLabel = cursor.MarkLabel();
         cursor.Goto(cursor.Index - 4);
         allowActivationLabel = cursor.MarkLabel();
+        cursor.Goto(cursor.Index); // makes allowActivationLabel stay on the instruction it's currently on
+        nullCheckLabel = cursor.MarkLabel();
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.Emit(OpCodes.Ldfld, loadOperationField);
         cursor.Emit(OpCodes.Brtrue_S, allowActivationLabel);
-        Log(cursor.Prev.Operand);
+        cursor.Emit(OpCodes.Ldloc_1);
         cursor.Emit(OpCodes.Ldfld, targetSceneNameField);
-        cursor.Emit(OpCodes.Call, typeof(InstantTransitionsMod)
-            .GetMethod(nameof(Activate), BindingFlags.Public | BindingFlags.Static));
+        cursor.EmitDelegate(ILActivateByName);
         cursor.Emit(OpCodes.Br_S, yieldReturnLabel);
+        for (int j = 0; j < 2; j++)
+        {
+            ILLabel? label = null;
+            cursor.GotoPrev(MoveType.Before, i => i.MatchLeaveS(out label));
+            label!.Target = nullCheckLabel.Target;
+        }
     }
 
     private void Preload(string sceneName)
@@ -204,7 +213,7 @@ public class InstantTransitionsMod : Mod
         };
     }
 
-    public static void Activate(Scene scene)
+    private static void Activate(Scene scene)
     {
         foreach (GameObject go in scene.GetRootGameObjects())
         {
@@ -212,7 +221,7 @@ public class InstantTransitionsMod : Mod
         }
     }
     
-    public static void Deactivate(Scene scene)
+    private static void Deactivate(Scene scene)
     {
         foreach (GameObject go in scene.GetRootGameObjects())
         {
