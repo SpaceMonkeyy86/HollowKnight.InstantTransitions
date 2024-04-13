@@ -2,10 +2,10 @@ using Modding;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using Mono.Cecil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using OpCodes = Mono.Cecil.Cil.OpCodes;
@@ -24,6 +24,19 @@ public class InstantTransitionsMod : Mod
     private static void ILActivateByName(string targetSceneName)
     {
         Activate(UnitySceneManager.GetSceneByName(targetSceneName));
+    }
+
+    private static void ILLogSceneLoadInfo(SceneLoad load)
+    {
+        StringBuilder builder = new();
+        builder.Append($"Finished loading {load.TargetSceneName}\n");
+        for (int i = 0; i < SceneLoad.PhaseCount; i++)
+        {
+            SceneLoad.Phases phase = (SceneLoad.Phases)i;
+            string name = Enum.GetName(typeof(SceneLoad.Phases), phase) ?? "Unknown phase";
+            builder.Append($"{name}: {load.GetDuration(phase)}\n");
+        }
+        Instance.LogDebug(builder.ToString());
     }
     
     private List<ILHook> hooks = [];
@@ -52,15 +65,16 @@ public class InstantTransitionsMod : Mod
     public override void Initialize()
     {
         ModHooks.BeforeSceneLoadHook += BeforeSceneLoadHook;
+        ModHooks.SavegameLoadHook += SavegameLoadHook;
         
         On.GameManager.OnNextLevelReady += GameManagerOnOnNextLevelReady;
         
         IL.GameManager.FindTransitionPoint += GameManagerOnFindTransitionPoint;
-        
+
         hooks.Add(new ILHook(
             typeof(SceneLoad)
-                    .GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic)
-                    .GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance), 
+                .GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic)
+                .GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance),
             SceneLoadOnBeginRoutine));
 
         Log("Initialized");
@@ -74,6 +88,11 @@ public class InstantTransitionsMod : Mod
         }
         
         return sceneName;
+    }
+
+    private void SavegameLoadHook(int slot)
+    {
+        preloadedScenes.Clear();
     }
 
     private void GameManagerOnOnNextLevelReady(On.GameManager.orig_OnNextLevelReady orig, GameManager self)
@@ -95,10 +114,7 @@ public class InstantTransitionsMod : Mod
         ILLabel? skipLabel = null;
         cursor.GotoNext(MoveType.After, i => i.MatchBrfalse(out skipLabel));
         cursor.Emit(OpCodes.Ldloc_2);
-        cursor.Emit(OpCodes.Call, typeof(TransitionPoint)
-            .GetProperty(nameof(TransitionPoint.isActiveAndEnabled),
-                BindingFlags.Public | BindingFlags.Instance)!
-            .GetGetMethod());
+        cursor.EmitDelegate<Func<TransitionPoint, bool>>(tp => tp.isActiveAndEnabled);
         cursor.Emit(OpCodes.Brfalse_S, skipLabel);
     }
 
@@ -177,12 +193,19 @@ public class InstantTransitionsMod : Mod
         cursor.Emit(OpCodes.Ldfld, targetSceneNameField);
         cursor.EmitDelegate(ILActivateByName);
         cursor.Emit(OpCodes.Br_S, yieldReturnLabel);
-        for (int j = 0; j < 2; j++)
+        for (int j = 0; j < 3; j++)
         {
             ILLabel? label = null;
-            cursor.GotoPrev(MoveType.Before, i => i.MatchLeaveS(out label));
+            cursor.GotoPrev(MoveType.Before, 
+                i => i.MatchLeaveS(out label) || i.MatchBrfalse(out label));
             label!.Target = nullCheckLabel.Target;
         }
+
+        cursor.GotoNext(MoveType.After,
+            i => i.MatchCallvirt(typeof(SceneLoad)
+                .GetMethod("set_IsFinished", BindingFlags.NonPublic | BindingFlags.Instance)));
+        cursor.Emit(OpCodes.Ldloc_1);
+        cursor.EmitDelegate(ILLogSceneLoadInfo);
     }
 
     private void Preload(string sceneName)
