@@ -100,9 +100,17 @@ public class InstantTransitionsMod : Mod
         orig(self);
         if (self.IsNonGameplayScene()) return;
 
+        foreach (GameObject go in UnitySceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (go.name.Contains("SceneBorder"))
+            {
+                go.SetActive(false);
+            }
+        }
+
         preloadedScenes.Remove(UnitySceneManager.GetActiveScene().name);
         
-        Preload("Crossroads_15");
+        Preload("Crossroads_19");
     }
     
     private void GameManagerOnFindTransitionPoint(ILContext il)
