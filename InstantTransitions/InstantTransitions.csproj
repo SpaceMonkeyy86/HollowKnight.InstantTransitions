@@ -7,10 +7,10 @@
         <AssemblyTitle>InstantTransitions</AssemblyTitle>
         <Product>InstantTransitions</Product>
         <Description>Removes loading times when transitioning between rooms.</Description>
-        <Copyright>Copyright © TwinBuilderOne 2023</Copyright>
-        <Authors>TwinBuilderOne</Authors>
+        <Copyright>Copyright © SpaceMonkeyy 2024</Copyright>
+        <Authors>SpaceMonkeyy</Authors>
         <NoWarn>7035</NoWarn>
-        <AssemblyVersion>0.1.*</AssemblyVersion>
+        <AssemblyVersion>0.1.0</AssemblyVersion>
         <Deterministic>false</Deterministic>
         <OutputPath>bin\$(Configuration)\</OutputPath>
         <LangVersion>latest</LangVersion>
