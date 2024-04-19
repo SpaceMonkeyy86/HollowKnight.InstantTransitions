@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -22,12 +21,6 @@ public class Preloader
     }
 
     public HashSet<string> PreloadedScenes { get; } = [];
-
-    public Preloader()
-    {
-        if (_instance != null) throw new InvalidOperationException("Instance already exists");
-        _instance = this;
-    }
 
     public void Preload(string sceneName)
     {

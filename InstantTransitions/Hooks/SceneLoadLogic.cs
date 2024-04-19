@@ -55,8 +55,13 @@ internal static class SceneLoadLogic
         orig(self);
         if (self.IsNonGameplayScene()) return;
 
-        Preloader.Instance.PreloadedScenes.Remove(UnitySceneManager.GetActiveScene().name);
-        Preloader.Instance.Preload("Crossroads_19");
+        string name = UnitySceneManager.GetActiveScene().name;
+        Preloader.Instance.PreloadedScenes.Remove(name);
+
+        foreach (string scene in WorldLayout.Instance.FindNeighbors(name))
+        {
+            Preloader.Instance.Preload(scene);
+        }
     }
 
     private static void SceneLoad_BeginRoutine(ILContext il)
