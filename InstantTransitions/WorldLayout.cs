@@ -18,6 +18,8 @@ public class WorldLayout
         }
     }
 
+    public static void Dispose() => _instance = null;
+
     public IEnumerable<string> FindNeighbors(string sceneName)
     {
         if (UnitySceneManager.GetActiveScene().name != sceneName) return [];
@@ -26,6 +28,8 @@ public class WorldLayout
 
         foreach (TransitionPoint tp in TransitionPoint.TransitionPoints)
         {
+            if (!tp.isActiveAndEnabled) continue;
+            if (string.IsNullOrEmpty(tp.targetScene) || string.IsNullOrEmpty(tp.entryPoint)) continue;
             neighbors.Add(tp.targetScene);
         }
 

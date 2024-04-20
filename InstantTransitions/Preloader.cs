@@ -20,6 +20,8 @@ public class Preloader
         }
     }
 
+    public static void Dispose() => _instance = null;
+
     public HashSet<string> PreloadedScenes { get; } = [];
 
     public void Preload(string sceneName)

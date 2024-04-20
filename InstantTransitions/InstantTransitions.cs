@@ -4,7 +4,7 @@ using System;
 
 namespace InstantTransitions;
 
-public class InstantTransitionsMod : Mod
+public class InstantTransitionsMod : Mod, ITogglableMod, IGlobalSettings<GlobalSettings>
 {
     private static InstantTransitionsMod? _instance;
     public static InstantTransitionsMod Instance
@@ -19,7 +19,7 @@ public class InstantTransitionsMod : Mod
         }
     }
 
-    public override string GetVersion() => GetType().Assembly.GetName().Version.ToString(3);
+    public GlobalSettings Settings { get; set; } = new();
 
     public InstantTransitionsMod() : base("Instant Transitions")
     {
@@ -27,22 +27,51 @@ public class InstantTransitionsMod : Mod
         _instance = this;
     }
 
+    public override string GetVersion()
+    {
+        return GetType().Assembly.GetName().Version.ToString(3);
+    }
+
     public override void Initialize()
     {
         Hook();
 
+#if DEBUG
+        UnityEngine.SceneManagement.SceneManagerAPI.overrideAPI = new SceneLoadLogger();
+#endif
+
         Log("Initialized");
+    }
+
+    public void Unload()
+    {
+        Unhook();
+
+        Preloader.Dispose();
+        WorldLayout.Dispose();
+    }
+
+    public void OnLoadGlobal(GlobalSettings settings)
+    {
+        Settings = settings;
+    }
+
+    public GlobalSettings OnSaveGlobal()
+    {
+        return Settings;
     }
 
     private void Hook()
     {
         SceneLoadLogic.Hook();
         VanillaFixes.Hook();
+        RemoveCameraFade.Hook();
     }
 
     private void Unhook()
     {
         SceneLoadLogic.Unhook();
         VanillaFixes.Unhook();
+        RemoveCameraFade.Unhook();
     }
 }
