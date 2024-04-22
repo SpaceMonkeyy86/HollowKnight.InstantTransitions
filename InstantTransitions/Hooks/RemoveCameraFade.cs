@@ -50,24 +50,11 @@ internal static class RemoveCameraFade
                 .GetAction<SetFsmFloat>(1)
                 .setValue = 0f;
             fsm.GetState("FadeIn")
+                .GetAction<SendEventByName>(2)
+                .delay = 0f;
+            fsm.GetState("FadeIn")
                 .GetAction<Wait>(3)
-                .time = 0.1f;
-
-            PlayMakerFSM blanker = fsm.GetGameObjectVariable("Blanker").Value.LocateMyFSM("Blanker Control");
-
-            blanker.GetColorVariable("Start Colour").Value = Color.white;
-            blanker.GetColorVariable("End Colour").Value = Color.white;
-
-            FsmOwnerDefault owner = blanker.GetState("Fade In")
-                .GetAction<SetSpriteRenderer>(3)
-                .gameObject;
-            SetSpriteRendererSprite action = new()
-            {
-                gameObject = owner,
-                sprite = new Sprite()
-            };
-            blanker.GetState("Fade In")
-                .AddAction(action);
+                .time = 0f;
         }
 
         return sceneName;

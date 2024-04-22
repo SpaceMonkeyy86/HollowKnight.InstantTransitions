@@ -25,11 +25,14 @@ internal static class VanillaFixes
         orig(self);
         if (self.IsNonGameplayScene()) return;
 
-        foreach (GameObject go in UnitySceneManager.GetActiveScene().GetRootGameObjects())
+        if (UnitySceneManager.GetActiveScene().IsValid())
         {
-            if (go.name.Contains("SceneBorder"))
+            foreach (GameObject go in UnitySceneManager.GetActiveScene().GetRootGameObjects())
             {
-                go.SetActive(false);
+                if (go.name.Contains("SceneBorder"))
+                {
+                    go.SetActive(false);
+                }
             }
         }
     }
