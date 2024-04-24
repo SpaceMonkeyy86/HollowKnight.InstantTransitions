@@ -29,11 +29,4 @@ internal static class ILCallbacks
         InstantTransitionsMod.Instance.LogDebug(builder.ToString());
 #endif
     }
-
-
-    internal static float FadeTimer()
-    {
-        if (InstantTransitionsMod.Instance.Settings.RemoveCameraFade) return 0f;
-        return 0.5f;
-    }
 }

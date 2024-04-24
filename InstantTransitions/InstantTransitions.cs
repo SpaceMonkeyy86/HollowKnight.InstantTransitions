@@ -4,7 +4,7 @@ using System;
 
 namespace InstantTransitions;
 
-public class InstantTransitionsMod : Mod, ITogglableMod, IGlobalSettings<GlobalSettings>
+public class InstantTransitionsMod : Mod
 {
     private static InstantTransitionsMod? _instance;
     public static InstantTransitionsMod Instance
@@ -18,8 +18,6 @@ public class InstantTransitionsMod : Mod, ITogglableMod, IGlobalSettings<GlobalS
             return _instance;
         }
     }
-
-    public GlobalSettings Settings { get; set; } = new();
 
     public InstantTransitionsMod() : base("Instant Transitions")
     {
@@ -43,35 +41,10 @@ public class InstantTransitionsMod : Mod, ITogglableMod, IGlobalSettings<GlobalS
         Log("Initialized");
     }
 
-    public void Unload()
-    {
-        Unhook();
-
-        Preloader.Dispose();
-        WorldLayout.Dispose();
-    }
-
-    public void OnLoadGlobal(GlobalSettings settings)
-    {
-        Settings = settings;
-    }
-
-    public GlobalSettings OnSaveGlobal()
-    {
-        return Settings;
-    }
-
     private void Hook()
     {
         SceneLoadLogic.Hook();
         VanillaFixes.Hook();
         RemoveCameraFade.Hook();
-    }
-
-    private void Unhook()
-    {
-        SceneLoadLogic.Unhook();
-        VanillaFixes.Unhook();
-        RemoveCameraFade.Unhook();
     }
 }

@@ -2,5 +2,5 @@
 
 public class GlobalSettings
 {
-    public bool RemoveCameraFade = true;
+    public bool KeepCameraFade = false;
 }

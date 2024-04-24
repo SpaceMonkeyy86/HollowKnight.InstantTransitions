@@ -1,13 +1,12 @@
 ﻿using Core.FsmUtil;
-using HutongGames.PlayMaker;
 using HutongGames.PlayMaker.Actions;
 using Modding;
+using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
 
 namespace InstantTransitions.Hooks;
 
@@ -38,24 +37,21 @@ internal static class RemoveCameraFade
 
     private static string BeforeSceneLoad(string sceneName)
     {
-        if (InstantTransitionsMod.Instance.Settings.RemoveCameraFade)
-        {
-            PlayMakerFSM fsm = GameManager.instance.cameraCtrl.gameObject.LocateMyFSM("CameraFade");
+        PlayMakerFSM fsm = GameManager.instance.cameraCtrl.gameObject.LocateMyFSM("CameraFade");
 
-            fsm.GetState("FadingOut")
-                .GetAction<SetFsmFloat>(3)
-                .setValue = 0f;
+        fsm.GetState("FadingOut")
+            .GetAction<SetFsmFloat>(3)
+            .setValue = 0f;
 
-            fsm.GetState("FadeIn")
-                .GetAction<SetFsmFloat>(1)
-                .setValue = 0f;
-            fsm.GetState("FadeIn")
-                .GetAction<SendEventByName>(2)
-                .delay = 0f;
-            fsm.GetState("FadeIn")
-                .GetAction<Wait>(3)
-                .time = 0f;
-        }
+        fsm.GetState("FadeIn")
+            .GetAction<SetFsmFloat>(1)
+            .setValue = 0f;
+        fsm.GetState("FadeIn")
+            .GetAction<SendEventByName>(2)
+            .delay = 0f;
+        fsm.GetState("FadeIn")
+            .GetAction<Wait>(3)
+            .time = 0f;
 
         return sceneName;
     }
@@ -73,7 +69,7 @@ internal static class RemoveCameraFade
             i => i.MatchStfld(stateMachineType, "<cameraFadeTimer>5__2"));
         cursor.GotoNext(MoveType.Before, i => i.MatchLdcR4(out _));
         cursor.Remove();
-        cursor.EmitDelegate(ILCallbacks.FadeTimer);
+        cursor.Emit(OpCodes.Ldc_R4, 0f);
     }
 
     private static void HeroController_EnterScene(ILContext il)
