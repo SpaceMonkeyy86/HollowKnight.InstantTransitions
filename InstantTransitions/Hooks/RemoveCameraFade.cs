@@ -17,6 +17,7 @@ internal static class RemoveCameraFade
     internal static void Hook()
     {
         ModHooks.BeforeSceneLoadHook += BeforeSceneLoad;
+        On.PlayMakerFSM.Awake += PlayMakerFSM_Awake;
         _hooks.Add(new ILHook(
             typeof(GameManager)
                 .GetNestedType("<BeginSceneTransitionRoutine>d__174", BindingFlags.NonPublic)
@@ -54,6 +55,18 @@ internal static class RemoveCameraFade
             .time = 0f;
 
         return sceneName;
+    }
+
+    private static void PlayMakerFSM_Awake(On.PlayMakerFSM.orig_Awake orig, PlayMakerFSM self)
+    {
+        if (self.FsmName == "Door Control")
+        {
+            self.GetState("Enter")
+                .GetAction<Wait>(5)
+                .time.Value = 0f;
+        }
+
+        orig(self);
     }
 
     private static void GameManager_BeginSceneTransitionRoutine(ILContext il)
