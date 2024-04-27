@@ -1,4 +1,5 @@
 ﻿using Core.FsmUtil;
+using HutongGames.PlayMaker;
 using HutongGames.PlayMaker.Actions;
 using Modding;
 using Mono.Cecil.Cil;
@@ -61,9 +62,20 @@ internal static class RemoveCameraFade
     {
         if (self.FsmName == "Door Control")
         {
-            self.GetState("Enter")
-                .GetAction<Wait>(5)
-                .time.Value = 0f;
+            FsmFloat? time = self.GetState("Enter")?
+                .GetAction<Wait>(5)?
+                .time;
+            if (time != null) time.Value = 0f;
+        }
+
+        if (self.FsmName == "Blanker Control" && self.name == "Stag Blanker")
+        {
+            self.GetState("Init")
+                .GetAction<Wait>(4)
+                .time = 0f;
+
+            self.GetFloatVariable("Fade Time")
+                .Value = 0f;
         }
 
         orig(self);
