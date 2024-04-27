@@ -70,6 +70,10 @@ internal static class SceneLoadLogic
 
         Type stateMachineType = typeof(SceneLoad)
             .GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic);
+        FieldInfo stateField = stateMachineType
+            .GetField("<>1__state", BindingFlags.NonPublic | BindingFlags.Instance);
+        FieldInfo currentField = stateMachineType
+            .GetField("<>2__current", BindingFlags.NonPublic | BindingFlags.Instance);
 
         // Insert before AsyncOperation loadOperation = UnitySceneManager.LoadSceneAsync(...)
         // if (InstantTransitionsMod.ILIsTargetPreloaded(targetSceneName))
@@ -146,6 +150,14 @@ internal static class SceneLoadLogic
                 i => i.MatchLeaveS(out label) || i.MatchBrfalse(out label));
             label!.Target = nullCheckLabel.Target;
         }
+
+        cursor.GotoNext(MoveType.Before,
+            i => i.MatchStfld(currentField),
+            i => i.MatchLdarg(0),
+            i => i.MatchLdcI4(8),
+            i => i.MatchStfld(stateField));
+        cursor.Emit(OpCodes.Pop);
+        cursor.Emit(OpCodes.Ldnull);
 
         cursor.GotoNext(MoveType.After,
             i => i.MatchCallvirt(typeof(SceneLoad)
