@@ -62,10 +62,12 @@ internal static class RemoveCameraFade
     {
         if (self.FsmName == "Door Control")
         {
-            FsmFloat? time = self.GetState("Enter")?
-                .GetAction<Wait>(5)?
-                .time;
-            if (time != null) time.Value = 0f;
+            var state = self.GetState("Enter");
+            if (state == null) return;
+            if (state.Actions.Length <= 5) return;
+            var action = state.GetAction<Wait>(5);
+            if (action == null) return;
+            action.time = 0f;
         }
 
         if (self.FsmName == "Blanker Control" && self.name == "Stag Blanker")

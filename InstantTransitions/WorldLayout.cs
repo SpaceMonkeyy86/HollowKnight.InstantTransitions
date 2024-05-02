@@ -1,5 +1,6 @@
 ﻿using Core.FsmUtil;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
@@ -23,7 +24,7 @@ public class WorldLayout
 
     public static void Dispose() => _instance = null;
 
-    public IEnumerable<string> FindNeighbors(string sceneName)
+    public List<string> FindNeighbors(string sceneName)
     {
         Scene scene = UnitySceneManager.GetActiveScene();
         if (scene.name != sceneName) return [];
@@ -36,22 +37,21 @@ public class WorldLayout
             CheckGameObject(go, neighbors);
         }
 
-        return neighbors;
+        return neighbors.ToList();
     }
 
     private void CheckGameObject(GameObject go, HashSet<string> neighbors)
     {
         if (!go.activeSelf) return;
 
-        if (go.GetComponent<TransitionPoint>() is TransitionPoint tp &&
-            !string.IsNullOrEmpty(tp.targetScene) && !string.IsNullOrEmpty(tp.entryPoint))
-        {
-            neighbors.Add(tp.targetScene);
-        }
-
         if (go.LocateMyFSM("Door Control") is PlayMakerFSM fsm)
         {
             neighbors.Add(fsm.GetStringVariable("New Scene").Value);
+        }
+        else if (go.GetComponent<TransitionPoint>() is TransitionPoint tp &&
+            !string.IsNullOrEmpty(tp.targetScene) && !string.IsNullOrEmpty(tp.entryPoint))
+        {
+            neighbors.Add(tp.targetScene);
         }
 
         for (int i = 0; i < go.transform.childCount; i++)
