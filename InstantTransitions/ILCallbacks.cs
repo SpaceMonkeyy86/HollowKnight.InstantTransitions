@@ -29,4 +29,9 @@ internal static class ILCallbacks
         InstantTransitionsMod.Instance.LogDebug(builder.ToString());
 #endif
     }
+
+    internal static bool ParentSceneIsActive(SceneAdditiveLoadConditional loadConditional)
+    {
+        return GameManager.instance.nextSceneName == loadConditional.gameObject.scene.name;
+    }
 }

@@ -20,6 +20,7 @@ internal static class SceneLoadLogic
         ModHooks.BeforeSceneLoadHook += ModHooks_BeforeSceneLoadHook;
         ModHooks.SavegameLoadHook += ModHooks_SavegameLoadHook;
         On.GameManager.OnNextLevelReady += GameManager_OnNextLevelReady;
+        IL.SceneAdditiveLoadConditional.OnEnable += SceneAdditiveLoadConditional_OnEnable;
         _hooks.Add(new ILHook(
             typeof(SceneLoad)
                 .GetNestedType("<BeginRoutine>d__35", BindingFlags.NonPublic)
@@ -32,6 +33,7 @@ internal static class SceneLoadLogic
         ModHooks.BeforeSceneLoadHook -= ModHooks_BeforeSceneLoadHook;
         ModHooks.SavegameLoadHook -= ModHooks_SavegameLoadHook;
         On.GameManager.OnNextLevelReady -= GameManager_OnNextLevelReady;
+        IL.SceneAdditiveLoadConditional.OnEnable -= SceneAdditiveLoadConditional_OnEnable;
         _hooks.Clear();
     }
 
@@ -60,8 +62,26 @@ internal static class SceneLoadLogic
 
         foreach (string scene in WorldLayout.Instance.FindNeighbors(name))
         {
+            if (UnitySceneManager.GetSceneByName(scene).isLoaded) continue;
             Preloader.Instance.Preload(scene);
         }
+    }
+
+    private static void SceneAdditiveLoadConditional_OnEnable(ILContext il)
+    {
+        ILCursor cursor = new ILCursor(il).Goto(0);
+
+        // Replace if (this.sceneNameToLoad != "") with if (this.sceneNameToLoad != "" && ILCallbacks.ParentSceneIsActive(this))
+        cursor.GotoNext(MoveType.After,
+            i => i.MatchLdarg(0),
+            i => i.MatchLdfld<SceneAdditiveLoadConditional>("sceneNameToLoad"),
+            i => i.MatchLdstr(""),
+            i => i.MatchCall<string>("op_Inequality"),
+            i => i.MatchBrfalse(out _));
+        ILLabel skipLabel = (ILLabel)cursor.Prev.Operand;
+        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitDelegate(ILCallbacks.ParentSceneIsActive);
+        cursor.Emit(OpCodes.Brfalse_S, skipLabel);
     }
 
     private static void SceneLoad_BeginRoutine(ILContext il)
@@ -76,7 +96,7 @@ internal static class SceneLoadLogic
             .GetField("<>2__current", BindingFlags.NonPublic | BindingFlags.Instance);
 
         // Insert before AsyncOperation loadOperation = UnitySceneManager.LoadSceneAsync(...)
-        // if (InstantTransitionsMod.ILIsTargetPreloaded(targetSceneName))
+        // if (ILCallbacks.IsTargetPreloaded(targetSceneName))
         // {
         //     loadOperation = null;
         //     goto <RecordEndTime(SceneLoad.Phases.Fetch)>;
@@ -114,7 +134,7 @@ internal static class SceneLoadLogic
         // Replace loadOperation.allowSceneActivation = true with
         // if (loadOperation == null)
         // {
-        //     InstantTransitionsMod.ILActivateByName(targetSceneName);
+        //     ILCallbacks.ActivateByName(targetSceneName);
         // }
         // else
         // {

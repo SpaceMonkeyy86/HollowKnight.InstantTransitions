@@ -60,6 +60,8 @@ internal static class RemoveCameraFade
 
     private static void PlayMakerFSM_Awake(On.PlayMakerFSM.orig_Awake orig, PlayMakerFSM self)
     {
+        orig(self);
+
         if (self.FsmName == "Door Control")
         {
             var state = self.GetState("Enter");
@@ -79,8 +81,6 @@ internal static class RemoveCameraFade
             self.GetFloatVariable("Fade Time")
                 .Value = 0f;
         }
-
-        orig(self);
     }
 
     private static void GameManager_BeginSceneTransitionRoutine(ILContext il)
