@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
 
 namespace InstantTransitions;
 
@@ -17,6 +18,8 @@ internal static class ILCallbacks
 
     internal static void LogSceneLoadInfo(SceneLoad load)
     {
+        UnitySceneManager.SetActiveScene(UnitySceneManager.GetSceneByName(load.TargetSceneName));
+
 #if DEBUG
         StringBuilder builder = new();
         builder.Append($"Finished loading {load.TargetSceneName}\n");

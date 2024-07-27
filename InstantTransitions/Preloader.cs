@@ -59,6 +59,8 @@ public class Preloader
         Scene scene = UnitySceneManager.GetSceneByName(sceneName);
         if (!scene.isLoaded) return;
 
+        InstantTransitionsMod.Instance.LogDebug($"Unload({sceneName}) active scene {UnitySceneManager.GetActiveScene().name} stack trace: {System.Environment.StackTrace}");
+
         AsyncOperation? operation = UnitySceneManager.UnloadSceneAsync(sceneName);
         if (operation == null) return;
 
@@ -83,6 +85,11 @@ public class Preloader
         foreach (GameObject go in scene.GetRootGameObjects())
         {
             go.SetActive(true);
+
+            foreach (PlayMakerFSM fsm in go.GetComponentsInChildren<PlayMakerFSM>())
+            {
+                fsm.SetState(fsm.Fsm.StartState);
+            }
         }
     }
 

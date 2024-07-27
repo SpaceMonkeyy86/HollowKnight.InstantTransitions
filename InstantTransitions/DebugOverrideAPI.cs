@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 namespace InstantTransitions;
 
-internal class SceneLoadLogger : SceneManagerAPI
+internal class DebugOverrideAPI : SceneManagerAPI
 {
     protected override AsyncOperation LoadSceneAsyncByNameOrIndex(
         string sceneName, int sceneBuildIndex, LoadSceneParameters parameters, bool mustCompleteNextFrame)

@@ -5,6 +5,7 @@ using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
@@ -17,7 +18,6 @@ internal static class SceneLoadLogic
 
     internal static void Hook()
     {
-        ModHooks.BeforeSceneLoadHook += ModHooks_BeforeSceneLoadHook;
         ModHooks.SavegameLoadHook += ModHooks_SavegameLoadHook;
         On.GameManager.OnNextLevelReady += GameManager_OnNextLevelReady;
         IL.SceneAdditiveLoadConditional.OnEnable += SceneAdditiveLoadConditional_OnEnable;
@@ -30,21 +30,10 @@ internal static class SceneLoadLogic
 
     internal static void Unhook()
     {
-        ModHooks.BeforeSceneLoadHook -= ModHooks_BeforeSceneLoadHook;
         ModHooks.SavegameLoadHook -= ModHooks_SavegameLoadHook;
         On.GameManager.OnNextLevelReady -= GameManager_OnNextLevelReady;
         IL.SceneAdditiveLoadConditional.OnEnable -= SceneAdditiveLoadConditional_OnEnable;
         _hooks.Clear();
-    }
-
-    private static string ModHooks_BeforeSceneLoadHook(string sceneName)
-    {
-        foreach (string scene in Preloader.Instance.PreloadedScenes)
-        {
-            if (scene != sceneName) Preloader.Instance.Unload(scene);
-        }
-
-        return sceneName;
     }
 
     private static void ModHooks_SavegameLoadHook(int slot)
@@ -57,12 +46,22 @@ internal static class SceneLoadLogic
         orig(self);
         if (self.IsNonGameplayScene()) return;
 
-        string name = UnitySceneManager.GetActiveScene().name;
+        string name = self.sceneName;
         Preloader.Instance.PreloadedScenes.Remove(name);
 
-        foreach (string scene in WorldLayout.Instance.FindNeighbors(name))
+        List<string> neighbors = WorldLayout.Instance.FindNeighbors(name);
+
+        foreach (string scene in Preloader.Instance.PreloadedScenes)
         {
-            if (UnitySceneManager.GetSceneByName(scene).isLoaded) continue;
+            if (!neighbors.Contains(scene) && scene != name)
+            {
+                InstantTransitionsMod.Instance.LogDebug(self.sceneName);
+                Preloader.Instance.Unload(scene);
+            }
+        }
+
+        foreach (string scene in neighbors)
+        {
             Preloader.Instance.Preload(scene);
         }
     }

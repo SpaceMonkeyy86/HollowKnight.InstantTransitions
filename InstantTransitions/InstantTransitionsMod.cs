@@ -35,7 +35,12 @@ public class InstantTransitionsMod : Mod
         Hook();
 
 #if DEBUG
-        UnityEngine.SceneManagement.SceneManagerAPI.overrideAPI = new SceneLoadLogger();
+        UnityEngine.SceneManagement.SceneManagerAPI.overrideAPI = new DebugOverrideAPI();
+
+        UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (prev, next) =>
+        {
+            LogDebug($"activeSceneChanged from {prev.name} to {next.name}");
+        };
 #endif
 
         Log("Initialized");
@@ -43,6 +48,7 @@ public class InstantTransitionsMod : Mod
 
     private void Hook()
     {
+        // TODO: Find a better way of organizing this
         SceneLoadLogic.Hook();
         VanillaFixes.Hook();
         RemoveCameraFade.Hook();

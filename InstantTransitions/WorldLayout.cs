@@ -26,9 +26,13 @@ public class WorldLayout
 
     public List<string> FindNeighbors(string sceneName)
     {
-        Scene scene = UnitySceneManager.GetActiveScene();
-        if (scene.name != sceneName) return [];
+        string name = GameManager.instance.sceneName;
+        if (name != sceneName) return [];
+
+        Scene scene = UnitySceneManager.GetSceneByName(name);
         if (!scene.IsValid()) return [];
+
+        InstantTransitionsMod.Instance.LogDebug($"Finding neighbors for {scene.name}");
 
         HashSet<string> neighbors = [];
 
@@ -36,6 +40,8 @@ public class WorldLayout
         {
             CheckGameObject(go, neighbors);
         }
+
+        // TODO: Add support for room rando
 
         return neighbors.ToList();
     }
